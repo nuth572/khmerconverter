@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZIP Bulk Renamer Pro — 1, 2, 3…</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#334155;border-radius:9px}
+  .inp{width:100%;background:#0f172a;border:1px solid #334155;border-radius:.6rem;padding:.55rem .75rem;color:#e2e8f0;outline:none}
+  .inp:focus{border-color:#0ea5e9;box-shadow:0 0 0 3px rgba(14,165,233,.15)}
+  .lbl{display:block;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:.3rem}
+</style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+<div class="max-w-6xl mx-auto px-5 py-10">
+
+  <header class="text-center mb-8">
+    <h1 class="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-sky-400 via-cyan-300 to-violet-400 bg-clip-text text-transparent">ZIP Bulk Renamer Pro</h1>
+    <p class="text-slate-400 mt-2">Upload a ZIP → rename every file 1, 2, 3 … with prefix, suffix &amp; more → download. 100% offline in your browser.</p>
+  </header>
+
+  <!-- Drop zone -->
+  <div id="drop" class="border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-2xl p-8 text-center cursor-pointer bg-slate-900/50 transition">
+    <svg class="w-12 h-12 mx-auto text-sky-400 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/></svg>
+    <p class="font-semibold text-lg">Drop .zip file(s) here or click to browse</p>
+    <p class="text-sm text-slate-500 mt-1">Multiple ZIPs can be merged. Nothing leaves your device.</p>
+    <input id="file" type="file" accept=".zip" multiple class="hidden">
+  </div>
+
+  <!-- Options -->
+  <div class="mt-6 bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+    <h2 class="font-semibold mb-4 text-slate-200">⚙️ Rename Options</h2>
+
+    <div class="grid sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div><label class="lbl">Prefix (start text)</label><input id="prefix" class="inp" placeholder="e.g. img_"></div>
+      <div><label class="lbl">Suffix (end text)</label><input id="suffix" class="inp" placeholder="e.g. _final"></div>
+      <div><label class="lbl">Start number</label><input id="start" type="number" value="1" class="inp"></div>
+      <div><label class="lbl">Step / increment</label><input id="step" type="number" value="1" min="1" class="inp"></div>
+      <div><label class="lbl">Pad digits (0 = none)</label><input id="pad" type="number" value="0" min="0" max="8" class="inp"></div>
+      <div><label class="lbl">Force extension (blank = keep)</label><input id="forceExt" class="inp" placeholder="e.g. jpg"></div>
+      <div><label class="lbl">Letter case</label>
+        <select id="caseMode" class="inp"><option value="none">Keep as typed</option><option value="lower">lowercase</option><option value="upper">UPPERCASE</option></select></div>
+      <div><label class="lbl">Folder structure</label>
+        <select id="flat" class="inp"><option value="1">Flatten all files</option><option value="0">Keep folders</option></select></div>
+      <div><label class="lbl">Sort order</label>
+        <select id="sort" class="inp">
+          <option value="name">Name (natural A→Z)</option>
+          <option value="nameDesc">Name (Z→A)</option>
+          <option value="size">Size (small→large)</option>
+          <option value="sizeDesc">Size (large→small)</option>
+          <option value="date">Date (old→new)</option>
+          <option value="dateDesc">Date (new→old)</option>
+          <option value="ext">Extension</option>
+          <option value="original">Original ZIP order</option>
+          <option value="random">Random shuffle</option>
+        </select></div>
+      <div><label class="lbl">Include only extensions</label><input id="onlyExt" class="inp" placeholder="jpg,png,pdf"></div>
+      <div><label class="lbl">Exclude extensions</label><input id="skipExt" class="inp" placeholder="txt,ini"></div>
+      <div><label class="lbl">Output ZIP name</label><input id="outName" class="inp" value="renamed.zip"></div>
+    </div>
+
+    <div class="flex flex-wrap gap-5 mt-4 text-sm text-slate-300">
+      <label class="flex items-center gap-2 cursor-pointer"><input id="restartPerFolder" type="checkbox" class="accent-sky-500 w-4 h-4"> Restart numbering in each folder</label>
+      <label class="flex items-center gap-2 cursor-pointer"><input id="perExt" type="checkbox" class="accent-sky-500 w-4 h-4"> Separate counter per extension</label>
+      <label class="flex items-center gap-2 cursor-pointer"><input id="keepOrig" type="checkbox" class="accent-sky-500 w-4 h-4"> Append original name</label>
+      <label class="flex items-center gap-2 cursor-pointer"><input id="noCompress" type="checkbox" class="accent-sky-500 w-4 h-4"> Store (no compression, faster)</label>
+    </div>
+
+    <p class="mt-4 text-xs text-slate-500">Pattern preview: <span id="pattern" class="font-mono text-sky-300"></span></p>
+  </div>
+
+  <div class="flex flex-wrap gap-3 mt-6">
+    <button id="go" disabled class="px-6 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed font-semibold">🚀 Rename &amp; Build ZIP</button>
+    <button id="dl" class="hidden px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold">⬇ Download ZIP</button>
+    <button id="csv" disabled class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold">📄 Export name map (CSV)</button>
+    <button id="reset" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold">↺ Reset</button>
+  </div>
+
+  <div class="mt-4 h-2 bg-slate-800 rounded-full overflow-hidden"><div id="bar" class="h-full w-0 bg-gradient-to-r from-sky-500 to-emerald-400 transition-all"></div></div>
+  <p id="status" class="mt-3 text-sm text-slate-400"></p>
+
+  <div id="tableWrap" class="hidden mt-6 bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
+    <div class="px-5 py-3 border-b border-slate-800 flex flex-wrap gap-3 justify-between items-center text-sm">
+      <span class="font-semibold">Preview</span>
+      <input id="search" class="inp max-w-xs py-1" placeholder="Search files…">
+      <span id="count" class="text-slate-400"></span>
+    </div>
+    <div class="max-h-[28rem] overflow-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-800/80 sticky top-0 backdrop-blur"><tr>
+          <th class="text-left px-4 py-2 w-12">#</th><th class="text-left px-4 py-2">Original</th>
+          <th class="text-left px-4 py-2">Size</th><th class="text-left px-4 py-2">New name</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let all = [], shown = [], blobOut = null;
+
+/* ---------- input wiring ---------- */
+$('drop').onclick = () => $('file').click();
+$('file').onchange = e => loadFiles(e.target.files);
+['dragover','dragenter'].forEach(ev => $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('border-sky-500','bg-slate-800/60'); }));
+['dragleave','drop'].forEach(ev => $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.remove('border-sky-500','bg-slate-800/60'); }));
+$('drop').addEventListener('drop', e => loadFiles(e.dataTransfer.files));
+
+const opts = ['prefix','suffix','start','step','pad','forceExt','caseMode','flat','sort','onlyExt','skipExt','restartPerFolder','perExt','keepOrig'];
+opts.forEach(id => { $(id).oninput = $(id).onchange = preview; });
+$('search').oninput = renderTable;
+
+/* ---------- helpers ---------- */
+const base = p => p.split('/').pop();
+const extOf = p => { const b = base(p), i = b.lastIndexOf('.'); return i > 0 ? b.slice(i+1).toLowerCase() : ''; };
+const stem = p => { const b = base(p), i = b.lastIndexOf('.'); return i > 0 ? b.slice(0,i) : b; };
+const padN = (n,p) => p > 0 ? String(n).padStart(p,'0') : String(n);
+const human = b => b < 1024 ? b+' B' : b < 1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(2)+' MB';
+const list = v => v.split(/[,\s]+/).map(s => s.trim().toLowerCase().replace(/^\./,'')).filter(Boolean);
+function status(t, cls='text-slate-400'){ $('status').className='mt-3 text-sm '+cls; $('status').textContent=t; }
+function bar(p){ $('bar').style.width = p+'%'; }
+
+/* ---------- load ---------- */
+async function loadFiles(fileList){
+  const files = [...fileList].filter(f => f.name.toLowerCase().endsWith('.zip'));
+  if (!files.length) { status('❌ Please select .zip file(s)','text-rose-400'); return; }
+  all = []; blobOut = null; $('dl').classList.add('hidden'); bar(0);
+  for (const f of files){
+    status('Reading ' + f.name + '…');
+    try {
+      const zip = await JSZip.loadAsync(f);
+      let i = 0;
+      zip.forEach((path, e) => { if (!e.dir) all.push({ path, file:e, idx:i++, size:e._data? e._data.uncompressedSize:0, date:e.date? e.date.getTime():0, src:f.name }); });
+    } catch(err){ status('❌ '+f.name+': '+err.message,'text-rose-400'); return; }
+  }
+  if (!all.length) { status('❌ No files inside the ZIP','text-rose-400'); return; }
+  $('go').disabled = false; $('csv').disabled = false;
+  status(`✅ Loaded ${files.length} ZIP(s) — ${all.length} files found.`,'text-emerald-400');
+  preview();
+}
+
+/* ---------- compute new names ---------- */
+function preview(){
+  if (!all.length) return;
+  const only = list($('onlyExt').value), skip = list($('skipExt').value);
+  shown = all.filter(e => { const x = extOf(e.path); return (!only.length || only.includes(x)) && !skip.includes(x); });
+
+  const s = $('sort').value;
+  const nat = (a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true,sensitivity:'base'});
+  const sorters = { name:nat, nameDesc:(a,b)=>-nat(a,b), size:(a,b)=>a.size-b.size, sizeDesc:(a,b)=>b.size-a.size,
+    date:(a,b)=>a.date-b.date, dateDesc:(a,b)=>b.date-a.date, ext:(a,b)=>extOf(a.path).localeCompare(extOf(b.path))||nat(a,b),
+    original:(a,b)=>a.idx-b.idx, random:()=>Math.random()-0.5 };
+  shown.sort(sorters[s] || nat);
+
+  const pre=$('prefix').value, suf=$('suffix').value, st=parseInt($('start').value)||0,
+        step=parseInt($('step').value)||1, pd=parseInt($('pad').value)||0,
+        fExt=$('forceExt').value.trim().replace(/^\./,''), cm=$('caseMode').value,
+        flat=$('flat').value==='1', perFolder=$('restartPerFolder').checked,
+        perExt=$('perExt').checked, keep=$('keepOrig').checked;
+
+  const counters = {};
+  shown.forEach(e => {
+    const dir = flat ? '' : (e.path.includes('/') ? e.path.slice(0,e.path.lastIndexOf('/')+1) : '');
+    const x = extOf(e.path);
+    const key = (perFolder ? dir : '') + '|' + (perExt ? x : '');
+    if (counters[key] === undefined) counters[key] = st; else counters[key] += step;
+    const n = counters[key];
+    const useExt = fExt || x;
+    let name = pre + padN(n,pd) + (keep ? '_' + stem(e.path) : '') + suf + (useExt ? '.' + useExt : '');
+    if (cm==='lower') name = name.toLowerCase(); else if (cm==='upper') name = name.toUpperCase();
+    e.newPath = dir + name;
+  });
+
+  $('pattern').textContent = (pre||'')+padN(st,pd)+(keep?'_originalname':'')+(suf||'')+'.'+($('forceExt').value.trim().replace(/^\./,'')||'ext');
+  renderTable();
+}
+
+function renderTable(){
+  const q = ($('search').value||'').toLowerCase();
+  const rows = shown.filter(e => !q || e.path.toLowerCase().includes(q) || e.newPath.toLowerCase().includes(q));
+  $('rows').innerHTML = rows.map((e,i) =>
+    `<tr class="border-t border-slate-800 hover:bg-slate-800/40"><td class="px-4 py-2 text-slate-500">${i+1}</td>
+     <td class="px-4 py-2 text-slate-400 truncate max-w-[18rem]" title="${e.path}">${e.path}</td>
+     <td class="px-4 py-2 text-slate-500 whitespace-nowrap">${human(e.size)}</td>
+     <td class="px-4 py-2 text-sky-300 font-mono truncate max-w-[18rem]" title="${e.newPath}">${e.newPath}</td></tr>`).join('');
+  $('count').textContent = rows.length + ' / ' + all.length + ' files';
+  $('tableWrap').classList.remove('hidden');
+}
+
+/* ---------- build ---------- */
+$('go').onclick = async () => {
+  if (!shown.length) return;
+  $('go').disabled = true; preview();
+  const out = new JSZip(), used = {};
+  for (let i=0;i<shown.length;i++){
+    const e = shown[i];
+    let p = e.newPath;
+    if (used[p]){ const c = used[p]; const d = p.lastIndexOf('.'); p = d>0 ? p.slice(0,d)+'('+c+')'+p.slice(d) : p+'('+c+')'; }
+    used[e.newPath] = (used[e.newPath]||0)+1;
+    out.file(p, await e.file.async('blob'));
+    bar(Math.round((i+1)/shown.length*60));
+    if (i % 5 === 0) { status(`Packing ${i+1}/${shown.length}…`); await new Promise(r=>setTimeout(r)); }
+  }
+  blobOut = await out.generateAsync({ type:'blob', compression: $('noCompress').checked ? 'STORE' : 'DEFLATE' },
+     m => { bar(60 + m.percent*0.4); status('Compressing ' + m.percent.toFixed(0) + '%'); });
+  bar(100);
+  status(`🎉 Done! ${shown.length} files · ${human(blobOut.size)}`, 'text-emerald-400');
+  $('go').disabled = false; $('dl').classList.remove('hidden');
+};
+
+function save(blob, name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); }
+$('dl').onclick = () => { if (blobOut) save(blobOut, ($('outName').value.trim()||'renamed.zip').replace(/(\.zip)?$/i,'.zip')); };
+$('csv').onclick = () => {
+  if (!shown.length) return;
+  const csv = 'old_name,new_name,size_bytes\n' + shown.map(e=>`"${e.path}","${e.newPath}",${e.size}`).join('\n');
+  save(new Blob([csv],{type:'text/csv'}), 'rename-map.csv');
+};
+$('reset').onclick = () => { all=[]; shown=[]; blobOut=null; $('file').value=''; $('go').disabled=true; $('csv').disabled=true;
+  $('dl').classList.add('hidden'); $('tableWrap').classList.add('hidden'); bar(0); status(''); };
+
+preview();
+</script>
+</body>
+</html>
